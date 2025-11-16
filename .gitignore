@@ -1,0 +1,7 @@
+build/
+
+nob
+*.old
+*.o
+*.pub
+*.exe
