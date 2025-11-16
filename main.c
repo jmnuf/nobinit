@@ -33,8 +33,7 @@ void usage(const char *program) {
   printf("    name                    ---        Name of the folder/project to initialize\n");
   printf("    FLAGS:\n");
   printf("        -c <compiler-name>  ---        Bootstrap nob with the specified compiler\n");
-  printf("        -run                ---        Run nob after bootstrapping\n");
-  printf("        -local              ---        Use locally cached nob.h version\n");
+  printf("        -local              ---        Don't do network request and use cached local nob.h version\n");
   printf("        -h                  ---        Print this help message\n");
 }
 
@@ -122,7 +121,6 @@ static size_t _curl_mem_callback(void *contents, size_t size, size_t nmemb, void
 }
 
 bool fetch_latest_nob_h() {
-  const char *base_path = setup.base_path;
   bool result = true;
   size_t save_point = temp_save();
   String_Builder sb = {0};
@@ -148,10 +146,7 @@ bool fetch_latest_nob_h() {
     return_defer(false);
   }
 
-  write_entire_file(temp_sprintf("%s/nob.h", nobinitdir), sb.items, sb.count);
-
-  const char *file_path = temp_sprintf("%s/nob.h", base_path);
-  if (!write_entire_file(file_path, sb.items, sb.count)) return_defer(false);
+  if (!write_entire_file(temp_sprintf("%s/nob.h", nobinitdir), sb.items, sb.count)) return_defer(false);
   nob_log(NOB_INFO, "Saved nob.h");
 
 defer:
@@ -177,14 +172,14 @@ bool fetch_cached_nob_h() {
 
   const char *cached_nob_path = temp_sprintf("%s/nob.h", nobinitdir);
   if (!file_exists(cached_nob_path)) {
-    nob_log(ERROR, "No cached nob.h exists");
+    nob_log(ERROR, "No cached nob.h exists in %s", cached_nob_path);
     return_defer(false);
   }
   if (!read_entire_file(cached_nob_path, &sb)) return_defer(false);
 
   const char *target_path = temp_sprintf("%s/nob.h", base_path);
   if (!write_entire_file(target_path, sb.items, sb.count)) return_defer(false);
-  nob_log(NOB_INFO, "Created %s/nob.h\n", base_path);
+  nob_log(NOB_INFO, "Created %s/nob.h", base_path);
 
 defer:
   if (sb.items) free(sb.items);
@@ -256,9 +251,8 @@ defer:
 }
 
 bool create_nob_h() {
-  if (!setup.local) {
-    if (!fetch_latest_nob_h()) return false;
-  }
+  // If curl fails still check for local copy
+  if (!setup.local) fetch_latest_nob_h();
   if (!fetch_cached_nob_h()) return false;
   return true;
 }
@@ -293,11 +287,6 @@ int main(int argc, char **argv) {
 
     if (zstr_eq(arg, "-local")) {
       setup.local = true;
-      continue;
-    }
-
-    if (zstr_eq(arg, "-run")) {
-      setup.run = true;
       continue;
     }
 
@@ -357,6 +346,7 @@ int main(int argc, char **argv) {
     nob_cc(&cmd);
   }
   setup.bootstrapper = cmd.items[0];
+  cmd.count = 0;
 
   printf("==================================================\n");
   printf("ProjectSetup:\n");
