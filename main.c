@@ -242,6 +242,9 @@ bool create_main_c() {
   size_t save_point = temp_save();
   const char *file_path = temp_sprintf("%s/main.c", base_path);
 
+  // If you initing on an existing project then we should not override it
+  if (file_exists(file_path)) return_defer(true);
+
   if (!write_entire_file(file_path, template_main_c, template_main_c_length)) return_defer(false);
   nob_log(INFO, "Created %s/main.c", base_path);
 
