@@ -12,6 +12,18 @@
 #include <pwd.h>
 #endif
 
+#if _WIN32
+#  ifdef __GNUC__
+#    define DEFAULT_COMPILER "cc"
+#  elif defined(__clang__)
+#    define DEFAULT_COMPILER "clang"
+#  elif defined(_MSC_VER)
+#    define DEFAULT_COMPILER "cl.exe"
+#  endif
+#else
+#  define DEFAULT_COMPILER "cc"
+#endif //  _WIN32
+
 #define zstr_eq(a, b) (strcmp(a, b) == 0)
 
 #define NOBINIT_DIRNAME ".nobinit"
@@ -33,6 +45,7 @@ void usage(const char *program) {
   printf("    name                    ---        Name of the folder/project to initialize\n");
   printf("    FLAGS:\n");
   printf("        -c <compiler-name>  ---        Bootstrap nob with the specified compiler\n");
+  printf("                                       Default compiler is '"DEFAULT_COMPILER"'\n");
   printf("        -local              ---        Don't do network request and use cached local nob.h version\n");
   printf("        -h                  ---        Print this help message\n");
 }
