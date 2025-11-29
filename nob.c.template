@@ -54,7 +54,8 @@ int main(int argc, char **argv) {
 
   if (!mkdir_if_not_exists(BUILD_FOLDER)) return 1;
 
-  if (force_rebuild || needs_rebuild1(BUILD_FOLDER"{{ project_name }}", "main.c")) {
+  const char *output_path = BUILD_FOLDER"{{ project_name }}";
+  if (force_rebuild || needs_rebuild1(output_path, "main.c")) {
     nob_cc(&cmd);
     nob_cc_flags(&cmd);
     nob_cc_output(&cmd, BUILD_FOLDER"{{ project_name }}");
@@ -68,7 +69,7 @@ int main(int argc, char **argv) {
   nob_log(INFO, "Unit %s is up to date", output_path);
 
   if (should_run) {
-    cmd_append(&cmd, BUILD_FOLDER"{{ project_name }}");
+    cmd_append(&cmd, output_path);
     for (size_t i = 0; i < argc; ++i) {
       cmd_append(&cmd, argv[i]);
     }
