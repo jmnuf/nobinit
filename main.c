@@ -204,19 +204,6 @@ defer:
   return result;
 }
 
-bool create_directory(const char *path) {
-  #ifdef _WIN32
-  int result = _mkdir(path);
-  #else
-  int result = mkdir(path, 0755);
-  #endif
-  if (result < 0) {
-    nob_log(ERROR, "Failed to create directory `%s`: %s", path, strerror(errno));
-    return false;
-  }
-  return true;
-}
-
 
 bool create_template_files() {
   const Template_Data *tdata = setup.template_data;
@@ -356,7 +343,7 @@ int main(int argc, char **argv) {
     setup.name = nob_path_name(cwd);
   } else {
     const char *path = temp_sv_to_cstr(name_sv);
-    if (!create_directory(path)) return 1;
+    if (!mkdir_if_not_exists(path)) return 1;
     nob_log(INFO, "Created directory: %s", path);
     setup.base_path = path;
     if (sv_includes(name_sv, "/") || sv_includes(name_sv, "\\")) {
