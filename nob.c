@@ -153,8 +153,9 @@ defer:
 }
 
 bool build_templates(bool force_rebuild) {
-  const char *templates[] = { "simple", NULL };
+  const char *templates[] = { "simple", "cmdl", NULL };
   const char *templates_file_path = BUILD_FOLDER"templates.c";
+  size_t templates_count = ARRAY_LEN(templates)-1;
 
   for (const char **it = templates; *it != NULL; ++it) {
     if (!build_template(*it, force_rebuild)) return false;
@@ -182,6 +183,13 @@ bool build_templates(bool force_rebuild) {
   for (const char **it = templates; *it != NULL; ++it) {
     fprintf(f, "#include \"templates/%s.c\"\n", *it);
   }
+
+  fprintf(f, "\nsize_t templates_count = %zu;\n", templates_count);
+  fputs("const Template_Data *templates[] = {\n", f);
+  for (const char **it = templates; *it != NULL; ++it) {
+    fprintf(f, "    &template_data_%s,\n", *it);
+  }
+  fputs("};\n", f);
 
   fclose(f);
 
