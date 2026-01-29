@@ -49,7 +49,12 @@ void usage(const char *program) {
   printf("        -c <compiler-name>  ---        Bootstrap nob with the specified compiler\n");
   printf("                                       Default compiler is '"DEFAULT_COMPILER"'\n");
   printf("        -local              ---        Don't do network request and use cached local nob.h version\n");
+  printf("        -t <template-name>  ---        Specify project template to use. Defaults to 'simple'\n");
   printf("        -h                  ---        Print this help message\n");
+  printf("    Templates:\n");
+  for (size_t i = 0; i < templates_count; ++i) {
+    printf("        %s\n", templates[i]->name);
+  }
 }
 
 bool sb_reserve(String_Builder *sb, size_t req_cap) {
@@ -303,6 +308,25 @@ int main(int argc, char **argv) {
       continue;
     }
 
+    if (zstr_eq(arg, "-t")) {
+      if (argc == 0) {
+        nob_log(ERROR, "Missing to provide the template to use after '%s' flag", arg);
+        usage(program_name);
+        return 1;
+      }
+      const char *tn = shift(argv, argc);
+      if (zstr_eq(tn, "simple")) {
+        setup.template_data = &template_data_simple;
+      } else if (zstr_eq(tn, "cmdl")) {
+        setup.template_data = &template_data_cmdl;
+      } else {
+        nob_log(ERROR, "Unknown template provided after '%s' flag: '%s'", arg, tn);
+        usage(program_name);
+        return 1;
+      }
+      continue;
+    }
+
     if (arg[0] == '-') {
       nob_log(ERROR, "Unknown flag provided: %s", arg);
       usage(program_name);
@@ -360,7 +384,6 @@ int main(int argc, char **argv) {
   }
   setup.bootstrapper = cmd.items[0];
   cmd.count = 0;
-  setup.template_data = &template_data_simple;
 
   printf("==================================================\n");
   printf("ProjectSetup:\n");
