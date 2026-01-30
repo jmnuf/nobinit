@@ -4,8 +4,8 @@ const char *program_name;
 
 void print_usage() {
   printf("Usage: %s [FLAGS]\n", program_name);
-  printf("FLAGS:\n", program_name);
-  printf("    -h,--help        ----    Print this help message\n", program_name);
+  printf("FLAGS:\n");
+  printf("    -h,--help        ----    Print this help message\n");
 }
 
 int main(int argc, char **argv) {
