@@ -34,6 +34,8 @@ typedef struct {
   const char *name;
   bool run;
   bool local;
+
+  const Template_Data *template_data;
 } Project_Setup;
 
 Project_Setup setup = {0};
@@ -47,7 +49,12 @@ void usage(const char *program) {
   printf("        -c <compiler-name>  ---        Bootstrap nob with the specified compiler\n");
   printf("                                       Default compiler is '"DEFAULT_COMPILER"'\n");
   printf("        -local              ---        Don't do network request and use cached local nob.h version\n");
+  printf("        -t <template-name>  ---        Specify project template to use. Defaults to 'simple'\n");
   printf("        -h                  ---        Print this help message\n");
+  printf("    Templates:\n");
+  for (size_t i = 0; i < templates_count; ++i) {
+    printf("        %s\n", templates[i]->name);
+  }
 }
 
 bool sb_reserve(String_Builder *sb, size_t req_cap) {
@@ -76,7 +83,7 @@ const char *win32_get_env(const char *name) {
 
 const char *get_home_path() {
   const char *home_path = NULL;
-  #ifdef _WIN32
+#ifdef _WIN32
   const char *wdrive = win32_get_env("HOMEDRIVE");
   const char *wpath = win32_get_env("HOMEPATH");
   if (wdrive && wpath) {
@@ -84,14 +91,14 @@ const char *get_home_path() {
   }
   if (wdrive) free(wdrive);
   if (wpath) free(wpath);
-  #else
+#else
   home_path = getenv("HOME");
   if (home_path == NULL) {
     struct passwd *pwd = getpwuid(getuid());
     if (pwd) home_path = pwd->pw_dir;
   }
   if (home_path) home_path = temp_strdup(home_path);
-  #endif // WIN32
+#endif // WIN32
 
   if (!home_path) {
     nob_log(ERROR, "Failed to get home directory");
@@ -139,7 +146,7 @@ bool fetch_latest_nob_h() {
   String_Builder sb = {0};
 
   curl_global_init(CURL_GLOBAL_ALL);
-  CURL *handle;
+  CURL *handle = NULL;
 
   const char *home_path = get_home_path();
   const char *nobinitdir = temp_sprintf("%s/"NOBINIT_DIRNAME, home_path);
@@ -152,7 +159,7 @@ bool fetch_latest_nob_h() {
   curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, _curl_mem_callback);
   curl_easy_setopt(handle, CURLOPT_WRITEDATA, &sb);
 
-  nob_log(INFO, "curl <raw.github/tsoding/nob.h>");
+  nob_log(INFO, "curl <raw.githubusercontent.com/tsoding/nob.h>");
   CURLcode ret = curl_easy_perform(handle);
   if (ret != CURLE_OK) {
     nob_log(NOB_ERROR, "Curl failed: %s\n", curl_easy_strerror(ret));
@@ -202,68 +209,63 @@ defer:
   return result;
 }
 
-bool create_directory(const char *path) {
-  #ifdef _WIN32
-  int result = _mkdir(path);
-  #else
-  int result = mkdir(path, 0755);
-  #endif
-  if (result < 0) {
-    nob_log(ERROR, "Failed to create directory `%s`: %s", path, strerror(errno));
-    return false;
+
+bool create_template_files() {
+  const Template_Data *tdata = setup.template_data;
+  size_t file_count = 0, total_file_count = 0;
+  size_t save_point = temp_save();
+  for (const Template_File_Data *const*it = tdata->files; *it != NULL; ++it) {
+    total_file_count++;
+    temp_rewind(save_point);
+    const Template_File_Data *fdata = *it;
+
+    const char *file_path = temp_sprintf("%s/%s", setup.base_path, fdata->file_name);
+
+    if (file_exists(file_path)) {
+      nob_log(WARNING, "Skipping file %s because it already exists", file_path);
+      continue;
+    }
+
+    if (!fdata->is_template) {
+      if (!write_entire_file(file_path, fdata->data, fdata->data_length)) return false;
+      file_count++;
+      continue;
+    }
+
+    FILE *f = fopen(file_path, "w");
+    if (!f) {
+      nob_log(ERROR, "Failed to create file(%s): %s", file_path, strerror(errno));
+      return false;
+    }
+
+    const char *project_name_template = "{{ project_name }}";
+    size_t project_name_template_len = strlen(project_name_template);
+    size_t data_len = fdata->data_length;
+    for (size_t i = 0; i < data_len; ++i) {
+      const char c = fdata->data[i];
+      if (c != '{') {
+        fputc(c, f);
+        continue;
+      }
+      if (i + project_name_template_len > fdata->data_length) {
+        fputc(c, f);
+        continue;
+      }
+      if (memcmp((char*)(fdata->data + i), project_name_template, project_name_template_len) != 0) {
+        fputc(c, f);
+        continue;
+      }
+
+      fputs(setup.name, f);
+      i += project_name_template_len - 1;
+    }
+    fclose(f);
+    nob_log(INFO, "Created %s", file_path);
+
+    file_count++;
   }
+  nob_log(INFO, "Created %zu/%zu files from %s template", file_count, total_file_count, tdata->name);
   return true;
-}
-
-bool create_nob_c() {
-  const char *base_path = setup.base_path;
-  const char *project_name = setup.name;
-  bool result = true;
-  size_t save_point = temp_save();
-  const char *file_path = temp_sprintf("%s/nob.c", base_path);
-  FILE *f = fopen(file_path, "w");
-  if (!f) return_defer(false);
-
-  const char *project_name_template = "{{ project_name }}";
-  size_t project_name_template_len = strlen(project_name_template);
-  for (size_t i = 0; i < template_nob_c_length; ++i) {
-    const unsigned char c = template_nob_c[i];
-    if (c != '{') {
-      fputc(c, f);
-      continue;
-    }
-    if (strncmp(template_nob_c + i, project_name_template, project_name_template_len) != 0) {
-      fputc(c, f);
-      continue;
-    }
-
-    if (fputs(project_name, f) < 0) return_defer(false);
-    i += project_name_template_len - 1;
-  }
-  nob_log(INFO, "Created %s/nob.c", base_path);
-
-defer:
-  if (f) fclose(f);
-  temp_rewind(save_point);
-  return result;
-}
-
-bool create_main_c() {
-  const char *base_path = setup.base_path;
-
-  bool result = true;
-  size_t save_point = temp_save();
-  const char *file_path = temp_sprintf("%s/main.c", base_path);
-
-  // If you initing on an existing project then we should not override it
-  if (file_exists(file_path)) return_defer(true);
-
-  if (!write_entire_file(file_path, template_main_c, template_main_c_length)) return_defer(false);
-  nob_log(INFO, "Created %s/main.c", base_path);
-
-defer:
-  temp_rewind(save_point);
-  return result;
 }
 
 bool create_nob_h() {
@@ -303,6 +305,29 @@ int main(int argc, char **argv) {
 
     if (zstr_eq(arg, "-local")) {
       setup.local = true;
+      continue;
+    }
+
+    if (zstr_eq(arg, "-t")) {
+      if (argc == 0) {
+        nob_log(ERROR, "Missing to provide the template to use after '%s' flag", arg);
+        usage(program_name);
+        return 1;
+      }
+      const char *tn = shift(argv, argc);
+      const Template_Data *selected = NULL;
+      for (size_t i = 0; i < templates_count; ++i) {
+        if (zstr_eq(tn, templates[i]->name)) {
+          selected = templates[i];
+          break;
+        }
+      }
+      if (!selected) {
+        nob_log(ERROR, "Unknown template provided after '%s' flag: '%s'", arg, tn);
+        usage(program_name);
+        return 1;
+      }
+      setup.template_data = selected;
       continue;
     }
 
@@ -346,14 +371,17 @@ int main(int argc, char **argv) {
     setup.name = nob_path_name(cwd);
   } else {
     const char *path = temp_sv_to_cstr(name_sv);
-    if (!create_directory(path)) return 1;
-    nob_log(INFO, "Created directory: %s", path);
+    if (!mkdir_if_not_exists(path)) return 1;
     setup.base_path = path;
     if (sv_includes(name_sv, "/") || sv_includes(name_sv, "\\")) {
       setup.name = nob_path_name(path);
     } else {
       setup.name = path;
     }
+  }
+
+  if (!setup.template_data) {
+    setup.template_data = &template_data_simple;
   }
 
   if (setup.bootstrapper) {
@@ -367,14 +395,13 @@ int main(int argc, char **argv) {
   printf("==================================================\n");
   printf("ProjectSetup:\n");
   printf("    name: %s\n", setup.name);
+  printf("    template: %s\n", setup.template_data->name);
   printf("    base_path: %s\n", setup.base_path);
   printf("    compiler: %s\n", setup.bootstrapper);
   printf("    local_nob: %s\n", setup.local ? "true" : "false");
   printf("--------------------------------------------------\n");
 
-  if (!create_nob_c()) return 1;
-
-  if (!create_main_c()) return 1;
+  if (!create_template_files()) return 1;
 
   if (!create_nob_h()) return 1;
 
