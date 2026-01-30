@@ -315,15 +315,19 @@ int main(int argc, char **argv) {
         return 1;
       }
       const char *tn = shift(argv, argc);
-      if (zstr_eq(tn, "simple")) {
-        setup.template_data = &template_data_simple;
-      } else if (zstr_eq(tn, "cmdl")) {
-        setup.template_data = &template_data_cmdl;
-      } else {
+      const Template_Data *selected = NULL;
+      for (size_t i = 0; i < templates_count; ++i) {
+        if (zstr_eq(tn, templates[i]->name)) {
+          selected = templates[i];
+          break;
+        }
+      }
+      if (!selected) {
         nob_log(ERROR, "Unknown template provided after '%s' flag: '%s'", arg, tn);
         usage(program_name);
         return 1;
       }
+      setup.template_data = selected;
       continue;
     }
 
