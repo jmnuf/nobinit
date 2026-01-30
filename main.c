@@ -368,7 +368,6 @@ int main(int argc, char **argv) {
   } else {
     const char *path = temp_sv_to_cstr(name_sv);
     if (!mkdir_if_not_exists(path)) return 1;
-    nob_log(INFO, "Created directory: %s", path);
     setup.base_path = path;
     if (sv_includes(name_sv, "/") || sv_includes(name_sv, "\\")) {
       setup.name = nob_path_name(path);
