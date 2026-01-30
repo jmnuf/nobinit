@@ -9,7 +9,7 @@ I actually wrote this initially in typescript with [bun](https://bun.sh/) but th
 
 ## Build
 
-To build the project you need libcurl installed in your libraries path and a c compiler (what a surprise).
+To build the project you need libcurl installed and a c compiler (what a surprise).
 
 First you initialize nob and then you call it as follows:
 ```shell
@@ -24,14 +24,17 @@ If a name is provided it must be an unexisting folder.
 ```shell
 $ nobinit my-project
 $ cd my-project
+$ cc -o nob nob.c
 $ ./nob
 ```
 
-You got 2 options you can set when initializing a project.
+You got 3 options you can set when initializing a project.
 - `c <compiler-name>`: Provide a specific c compiler to use for initializing the build system
-- `-local`: Specify that we don't need to curl for the latest nob version
+- `t <template-name>`: Set the template to use for initializing the project. You can see the the template options from the help menu from the `-h` flag
+- `-local`: Initializes project with local copy of nob.h, evading the need to curl for latest nob.h from github
 
 If you are migrating an existing system into nob you can provide '.' instead of a name and it will generate the nob.c and nob.h files in the current directory. The project name will be taken from the current folder's name.
+
 
 ## Contributions
 
