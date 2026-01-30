@@ -39,8 +39,6 @@ bool build_template(const char *template_name, bool force_rebuild) {
   const char *template_input_folder = temp_sprintf("./templates/%s", template_name);
   const char *output_path = temp_sprintf(TEMPLATES_FOLDER"%s.c", template_name);
 
-  if (!mkdir_if_not_exists(TEMPLATES_FOLDER)) return_defer(false);
-
   children.count = 0;
   if (!read_entire_dir(template_input_folder, &children)) return_defer(false);
   for (int i = children.count - 1; i >= 0; --i) {
@@ -158,6 +156,8 @@ bool build_templates(bool force_rebuild) {
   const char *templates[] = { "simple", "cmdl", NULL };
   const char *templates_file_path = BUILD_FOLDER"templates.c";
   size_t templates_count = ARRAY_LEN(templates)-1;
+
+  if (!mkdir_if_not_exists(TEMPLATES_FOLDER)) return false;
 
   for (const char **it = templates; *it != NULL; ++it) {
     if (!build_template(*it, force_rebuild)) return false;
