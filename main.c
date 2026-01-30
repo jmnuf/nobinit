@@ -377,6 +377,10 @@ int main(int argc, char **argv) {
     }
   }
 
+  if (!setup.template_data) {
+    setup.template_data = &template_data_simple;
+  }
+
   if (setup.bootstrapper) {
     cmd_append(&cmd, setup.bootstrapper);
   } else {
