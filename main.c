@@ -275,9 +275,31 @@ bool create_nob_h() {
   return true;
 }
 
+void bootstrap_nob() {
+  // Don't ask why I'm not doing this before. We can do that at a later date
+  if (chdir(setup.base_path) != 0) {
+    nob_log(ERROR, "Couldn't step into project dir: %s", strerror(errno));
+    nob_log(INFO, "Bootstrapping was stopped because of error");
+    return;
+  }
+  cmd_append(&cmd, setup.bootstrapper);
+  if (zstr_eq(setup.bootstrapper, "cl.exe")) {
+    cmd_append(&cmd, "/Fe:nob.exe");
+  } else {
+    cmd_append(&cmd, "-o", "nob");
+  }
+  cmd_append(&cmd, "nob.c");
+  if (!cmd_run(&cmd)) {
+    nob_log(INFO, "Failed to bootstrap nob");
+  } else {
+    nob_log(INFO, "nob has been bootstrapped succesfully");
+  }
+}
+
 int main(int argc, char **argv) {
   const char *program_name = shift(argv, argc);
   String_View name_sv = {0};
+  bool bootstrap = false;
 
   while (argc > 0) {
     const char *arg = shift(argv, argc);
@@ -287,6 +309,12 @@ int main(int argc, char **argv) {
       return 0;
     }
 
+    if (zstr_eq(arg, "-cc")) {
+      bootstrap = true;
+      setup.bootstrapper = "cc";
+      continue;
+    }
+
     if (zstr_eq(arg, "-c")) {
       if (argc == 0) {
         nob_log(ERROR, "Missing to provide a compiler name for bootstrapping after '-c' flag");
@@ -294,6 +322,7 @@ int main(int argc, char **argv) {
         return 1;
       }
 
+      bootstrap = true;
       const char *compiler_name = shift(argv, argc);
       if (zstr_eq(compiler_name, "msvc")) {
         setup.bootstrapper = "cl.exe";
@@ -404,6 +433,8 @@ int main(int argc, char **argv) {
   if (!create_template_files()) return 1;
 
   if (!create_nob_h()) return 1;
+
+  if (bootstrap) bootstrap_nob();
 
   return 0;
 }
