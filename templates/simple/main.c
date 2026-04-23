@@ -1,10 +1,7 @@
 #include <stdio.h>
 
-int main(int argc, char **argv) {
+int main(void) {
   printf("Hello, world!\n");
-  for (int i = 1; i < argc; ++i) {
-    printf("Arg %d: %s\n", 1, argv[i]);
-  }
   return 0;
 }
 

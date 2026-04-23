@@ -11,12 +11,13 @@
 Cmd cmd = {0};
 
 
-void usage(const char *program_name) {
-  printf("Usage: %s [FLAGS] [run [-- [BUILD_EXE_ARGS]]]\n", program_name);
+void print_usage(const char *program_name) {
+  printf("Usage: %s [FLAGS] [run [..BUILD_EXE_ARGS]]\n", program_name);
   printf("    run        ---        Run built executable\n");
   printf("Flags:\n");
   printf("    -B         ---        Force re-building\n");
   printf("    -g         ---        Include debug information\n");
+  printf("    -h         ---        Print this help message\n");
 }
 
 char *zstr_replace_in_place(char *zstr, char needle, char replacement) {
@@ -209,8 +210,9 @@ int main(int argc, char **argv) {
   while (argc) {
     const char *arg = shift(argv, argc);
 
-    if (should_run && strcmp(arg, "--") == 0) {
-      break;
+    if (strcmp(arg, "-h") == 0) {
+      print_usage(program_name);
+      return 0;
     }
 
     if (strcmp(arg, "-B") == 0) {
@@ -225,8 +227,11 @@ int main(int argc, char **argv) {
 
     if (strcmp(arg, "run") == 0) {
       should_run = true;
-      continue;
+      break;
     }
+
+    nob_log(ERROR, "Unknown argument passed: %s", arg);
+    return 1;
   }
 
   if (!mkdir_if_not_exists(BUILD_FOLDER)) return 1;
@@ -261,7 +266,7 @@ int main(int argc, char **argv) {
       cmd_append(&cmd, argv[i]);
     }
 
-    if (!cmd_run(&cmd)) return 1;
+    cmd_run(&cmd);
   }
 
   return 0;
